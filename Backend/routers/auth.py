@@ -85,5 +85,5 @@ def login(
         )
 
     return AccessToken(
-        access_token=create_access_token(user.id)
+        access_token=create_access_token(user.id, user.token_version)
     )

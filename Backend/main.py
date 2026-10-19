@@ -1,4 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from config import settings
 from routers.admin_budgets import router as admin_budgets_router
 from routers.admin_expenses import router as admin_expenses_router
 from routers.admin_users import router as admin_users_router
@@ -10,6 +13,31 @@ from routers.expenses import router as expenses_router
 from routers.users import router as users_router
 
 app = FastAPI(title="Retain API")
+
+allowed_origins = [
+    origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Accept", "Authorization", "Content-Type"],
+)
+
+
+@app.exception_handler(Exception)
+async def unhandled_error(request: Request, error: Exception) -> JSONResponse:
+    response = JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
+    origin = request.headers.get("origin")
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+    return response
 
 
 @app.get("/")

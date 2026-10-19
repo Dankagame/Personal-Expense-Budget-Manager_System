@@ -5,6 +5,7 @@ import {
   createExpense,
   deleteExpense,
   getAllExpenses,
+  getExpenseById,
   getBudget,
   getBudgetHistory,
   getCategories,
@@ -27,7 +28,10 @@ import {
 } from './types'
 import { ProfileSettings } from './ProfileSettings'
 import { ExpenseDialog } from './ExpenseDialog'
+import { ExpenseDetailDialog } from './ExpenseDetailDialog'
 import { ButtonLoading, LoadingState } from '../Loading'
+import { useAppDispatch, useAppSelector } from '../store/hooks'
+import { applyExpenseFilters, resetExpenseFilters } from '../store/expenseFiltersSlice'
 import './dashboard.css'
 
 type View = 'overview' | 'expenses' | 'budgets' | 'categories' | 'settings'
@@ -52,11 +56,13 @@ function errorMessage(error: unknown) {
 
 function ExpenseTable({
   expenses,
+  onView,
   onEdit,
   onDelete,
   deletingExpenseId,
 }: {
   expenses: Expense[]
+  onView: (expense: Expense) => void
   onEdit?: (expense: Expense) => void
   onDelete?: (expense: Expense) => void
   deletingExpenseId?: number | null
@@ -71,23 +77,22 @@ function ExpenseTable({
             <th scope="col">Date</th>
             <th scope="col">Payment</th>
             <th scope="col" className="amount-cell">Amount</th>
-            {(onEdit || onDelete) && <th scope="col" className="actions-cell">Actions</th>}
+            <th scope="col" className="actions-cell">Actions</th>
           </tr>
         </thead>
         <tbody>
           {expenses.map((expense) => (
             <tr key={expense.id}>
-              <td className="expense-title">{expense.title}</td>
+              <td className="expense-title"><button className="inline-button expense-title-button" type="button" onClick={() => onView(expense)}>{expense.title}</button></td>
               <td>{expense.category_name}</td>
               <td>{formatDate(expense.expense_date)}</td>
               <td>{expense.payment_method}</td>
               <td className="amount-cell">{formatAmount(expense.amount)}</td>
-              {(onEdit || onDelete) && (
-                <td className="actions-cell">
-                  {onEdit && <button className="inline-button" type="button" onClick={() => onEdit(expense)} disabled={deletingExpenseId !== null && deletingExpenseId !== undefined}>Edit</button>}
-                  {onDelete && <button className="inline-button danger-link" type="button" onClick={() => onDelete(expense)} disabled={deletingExpenseId !== null && deletingExpenseId !== undefined} aria-busy={deletingExpenseId === expense.id}>{deletingExpenseId === expense.id ? <ButtonLoading label="Deleting…" /> : 'Delete'}</button>}
-                </td>
-              )}
+              <td className="actions-cell">
+                <button className="inline-button" type="button" onClick={() => onView(expense)}>View</button>
+                {onEdit && <button className="inline-button" type="button" onClick={() => onEdit(expense)} disabled={deletingExpenseId !== null && deletingExpenseId !== undefined}>Edit</button>}
+                {onDelete && <button className="inline-button danger-link" type="button" onClick={() => onDelete(expense)} disabled={deletingExpenseId !== null && deletingExpenseId !== undefined} aria-busy={deletingExpenseId === expense.id}>{deletingExpenseId === expense.id ? <ButtonLoading label="Deleting…" /> : 'Delete'}</button>}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -107,6 +112,8 @@ function EmptyState({ title, detail }: { title: string; detail: string }) {
 
 export function DashboardApp() {
   const { user, accessToken, signOut } = useAuth()
+  const dispatch = useAppDispatch()
+  const { search, categoryId, paymentMethod, startDate, endDate, sortBy, sortOrder } = useAppSelector((state) => state.expenseFilters)
   const [view, setView] = useState<View>('overview')
   const [menuOpen, setMenuOpen] = useState(false)
   const [revision, setRevision] = useState(0)
@@ -124,16 +131,17 @@ export function DashboardApp() {
   const [expensesLoading, setExpensesLoading] = useState(false)
   const [expensesError, setExpensesError] = useState<string | null>(null)
   const [filterFormKey, setFilterFormKey] = useState(0)
-  const [search, setSearch] = useState('')
-  const [categoryId, setCategoryId] = useState<number | null>(null)
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
   const [filterError, setFilterError] = useState<string | null>(null)
   const [expenseFormOpen, setExpenseFormOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
   const [expenseFormError, setExpenseFormError] = useState<string | null>(null)
   const [expenseSaving, setExpenseSaving] = useState(false)
   const [deletingExpenseId, setDeletingExpenseId] = useState<number | null>(null)
+  const [expenseDetailId, setExpenseDetailId] = useState<number | null>(null)
+  const [expenseDetail, setExpenseDetail] = useState<Expense | null>(null)
+  const [expenseDetailLoading, setExpenseDetailLoading] = useState(false)
+  const [expenseDetailError, setExpenseDetailError] = useState<string | null>(null)
+  const [expenseDetailRequest, setExpenseDetailRequest] = useState(0)
   const [expenseBudgets, setExpenseBudgets] = useState<BudgetSummary[]>([])
   const [expenseBudgetsLoading, setExpenseBudgetsLoading] = useState(false)
   const [expenseBudgetsError, setExpenseBudgetsError] = useState<string | null>(null)
@@ -183,8 +191,11 @@ export function DashboardApp() {
     getAllExpenses(accessToken, {
       search,
       categoryId,
+      paymentMethod,
       startDate,
       endDate,
+      sortBy,
+      sortOrder,
     })
       .then((data) => {
         if (!active) return
@@ -198,7 +209,7 @@ export function DashboardApp() {
       })
       .finally(() => { if (active) setExpensesLoading(false) })
     return () => { active = false }
-  }, [accessToken, categoryId, endDate, revision, search, signOut, startDate, view])
+  }, [accessToken, categoryId, endDate, paymentMethod, revision, search, signOut, sortBy, sortOrder, startDate, view])
 
   useEffect(() => {
     if (!accessToken || view !== 'budgets') return
@@ -226,6 +237,24 @@ export function DashboardApp() {
   }, [accessToken, budgetMonthSelection, revision, signOut, view])
 
   useEffect(() => {
+    if (!accessToken || expenseDetailId === null) return
+    const controller = new AbortController()
+    getExpenseById(accessToken, expenseDetailId, controller.signal)
+      .then((record) => {
+        if (controller.signal.aborted) return
+        setExpenseDetail(record)
+        setExpenseDetailError(null)
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return
+        if (isSessionError(error)) signOut()
+        else setExpenseDetailError(errorMessage(error))
+      })
+      .finally(() => { if (!controller.signal.aborted) setExpenseDetailLoading(false) })
+    return () => controller.abort()
+  }, [accessToken, expenseDetailId, expenseDetailRequest, signOut])
+
+  useEffect(() => {
     if (!accessToken || !expenseFormOpen || editingExpense) return
     let active = true
     getSavedBudgets(accessToken)
@@ -251,16 +280,29 @@ export function DashboardApp() {
     setMenuOpen(false)
     setExpenseFormOpen(false)
     setEditingExpense(null)
+    setExpenseDetailId(null)
     window.scrollTo(0, 0)
+  }
+
+  function openExpenseDetails(expense: Expense) {
+    setExpenseDetail(null)
+    setExpenseDetailError(null)
+    setExpenseDetailLoading(true)
+    setExpenseDetailId(expense.id)
   }
 
   function viewSelectedMonthExpenses() {
     const [year, month] = overviewMonth.split('-').map(Number)
     const lastDay = new Date(year, month, 0).getDate()
-    setSearch('')
-    setCategoryId(null)
-    setStartDate(`${overviewMonth}-01`)
-    setEndDate(`${overviewMonth}-${String(lastDay).padStart(2, '0')}`)
+    dispatch(applyExpenseFilters({
+      search: '',
+      categoryId: null,
+      paymentMethod: '',
+      startDate: `${overviewMonth}-01`,
+      endDate: `${overviewMonth}-${String(lastDay).padStart(2, '0')}`,
+      sortBy: 'expense_date',
+      sortOrder: 'desc',
+    }))
     setFilterError(null)
     setFilterFormKey((value) => value + 1)
     switchView('expenses')
@@ -299,10 +341,24 @@ export function DashboardApp() {
       return
     }
     setFilterError(null)
-    setSearch(String(fields.get('search') ?? '').trim())
-    setCategoryId(Number(fields.get('category_id')) || null)
-    setStartDate(nextStart)
-    setEndDate(nextEnd)
+    dispatch(applyExpenseFilters({
+      search: String(fields.get('search') ?? '').trim(),
+      categoryId: Number(fields.get('category_id')) || null,
+      paymentMethod: String(fields.get('payment_method') ?? '').trim(),
+      startDate: nextStart,
+      endDate: nextEnd,
+      sortBy: fields.get('sort_by') === 'amount' ? 'amount' : 'expense_date',
+      sortOrder: fields.get('sort_order') === 'asc' ? 'asc' : 'desc',
+    }))
+    setExpensesLoading(true)
+    setExpensesError(null)
+    setRevision((value) => value + 1)
+  }
+
+  function clearFilters() {
+    dispatch(resetExpenseFilters())
+    setFilterFormKey((value) => value + 1)
+    setFilterError(null)
     setExpensesLoading(true)
     setExpensesError(null)
     setRevision((value) => value + 1)
@@ -338,10 +394,7 @@ export function DashboardApp() {
         await updateExpense(accessToken, editingExpense.id, payload)
       } else {
         await createExpense(accessToken, payload)
-        setSearch('')
-        setCategoryId(null)
-        setStartDate('')
-        setEndDate('')
+        dispatch(resetExpenseFilters())
         setFilterError(null)
         setFilterFormKey((value) => value + 1)
       }
@@ -499,7 +552,7 @@ export function DashboardApp() {
 
                   <section className="dashboard-panel recent-panel">
                     <div className="panel-heading"><h2>Recent expenses · {overviewMonthLabel}</h2><button className="inline-button" type="button" onClick={viewSelectedMonthExpenses}>View all</button></div>
-                    {overview.recent_expenses.length === 0 ? <EmptyState title="No expenses recorded" detail={`No expenses were recorded for ${overviewMonthLabel}.`} /> : <ExpenseTable expenses={overview.recent_expenses} />}
+                    {overview.recent_expenses.length === 0 ? <EmptyState title="No expenses recorded" detail={`No expenses were recorded for ${overviewMonthLabel}.`} /> : <ExpenseTable expenses={overview.recent_expenses} onView={openExpenseDetails} />}
                   </section>
                 </>
               )}
@@ -536,11 +589,17 @@ export function DashboardApp() {
                 <h2>Filter expenses</h2>
                 {filterError && <p className="form-error" role="alert">{filterError}</p>}
                 <form className="filter-form" onSubmit={applyFilters} key={filterFormKey}>
-                  <label>Search<input name="search" type="search" placeholder="Title or notes" defaultValue={search} /></label>
+                  <label className="filter-search">Search<input name="search" type="search" placeholder="Title or notes" defaultValue={search} /></label>
                   <label>Category<select name="category_id" defaultValue={categoryId ?? ''}><option value="">All categories</option>{categories.map((category) => <option value={category.id} key={category.id}>{category.name}</option>)}</select></label>
+                  <label>Payment method<input name="payment_method" type="text" placeholder="e.g. Cash" defaultValue={paymentMethod} /></label>
                   <label>From<input name="start_date" type="date" defaultValue={startDate} /></label>
                   <label>To<input name="end_date" type="date" defaultValue={endDate} /></label>
-                  <button className="secondary-action" type="submit" disabled={expensesLoading} aria-busy={expensesLoading}>{expensesLoading ? <ButtonLoading label="Loading…" /> : 'Apply filters'}</button>
+                  <label>Sort by<select name="sort_by" defaultValue={sortBy}><option value="expense_date">Date</option><option value="amount">Amount</option></select></label>
+                  <label>Order<select name="sort_order" defaultValue={sortOrder}><option value="desc">Descending</option><option value="asc">Ascending</option></select></label>
+                  <div className="filter-actions">
+                    <button className="secondary-action" type="button" onClick={clearFilters} disabled={expensesLoading}>Clear</button>
+                    <button className="secondary-action" type="submit" disabled={expensesLoading} aria-busy={expensesLoading}>{expensesLoading ? <ButtonLoading label="Loading…" /> : 'Apply filters'}</button>
+                  </div>
                 </form>
               </section>
 
@@ -548,7 +607,7 @@ export function DashboardApp() {
                 <div className="panel-heading"><h2>All expenses</h2><span>{expensesLoading ? 'Loading…' : `${expenses.length} ${expenses.length === 1 ? 'record' : 'records'}`}</span></div>
                 {expensesLoading ? <LoadingState label="Loading expenses…" /> : expensesError ? <div className="error-panel" role="alert"><p>{expensesError}</p><button className="inline-button" type="button" onClick={() => { setExpensesLoading(true); setExpensesError(null); setRevision((value) => value + 1) }}>Try again</button></div> : (
                   <>
-                    <ExpenseTable expenses={expenses} onEdit={startExpense} onDelete={removeExpense} deletingExpenseId={deletingExpenseId} />
+                    <ExpenseTable expenses={expenses} onView={openExpenseDetails} onEdit={startExpense} onDelete={removeExpense} deletingExpenseId={deletingExpenseId} />
                     {expenses.length === 0 && <EmptyState title="No expenses found" detail="Try different filters or add an expense." />}
                   </>
                 )}
@@ -569,6 +628,9 @@ export function DashboardApp() {
                       <div><span>Remaining</span><strong className={budget.remaining !== null && amountNumber(budget.remaining) < 0 ? 'negative-amount' : ''}>{formatAmount(budget.remaining)}</strong></div>
                     </div>
                     {budget.budget_amount !== null && <div className="bar-track budget-track"><span className={budget.status === 'over' ? 'is-over' : ''} style={{ width: `${amountNumber(budget.budget_amount) > 0 ? Math.min(100, amountNumber(budget.total_spent) / amountNumber(budget.budget_amount) * 100) : amountNumber(budget.total_spent) > 0 ? 100 : 0}%` }} /></div>}
+                    <p className={`budget-status budget-status-${budget.status}`} role="status">
+                      {budget.status === 'not_set' ? 'No budget set for this month' : budget.status === 'within' ? 'Within budget' : budget.status === 'approaching' ? 'Approaching budget limit' : 'Over budget'}
+                    </p>
                     <form className="budget-form" onSubmit={saveBudget}>
                       <label htmlFor="budget-amount">Set budget for {monthLabel(budgetYear, budgetMonth)} (FRW)</label>
                       <div><input id="budget-amount" type="number" min="0" step="0.01" required value={budgetAmount} onChange={(event) => setBudgetAmount(event.target.value)} placeholder="0.00" /><button className="dashboard-primary" type="submit" disabled={budgetSaving} aria-busy={budgetSaving}>{budgetSaving ? <ButtonLoading label="Saving…" /> : 'Save budget'}</button></div>
@@ -615,6 +677,16 @@ export function DashboardApp() {
             </>
           )}
           {view === 'settings' && <ProfileSettings />}
+          {expenseDetailId !== null && (
+            <ExpenseDetailDialog
+              expenseId={expenseDetailId}
+              expense={expenseDetail}
+              loading={expenseDetailLoading}
+              error={expenseDetailError}
+              onClose={() => setExpenseDetailId(null)}
+              onRetry={() => { setExpenseDetailLoading(true); setExpenseDetailError(null); setExpenseDetailRequest((value) => value + 1) }}
+            />
+          )}
         </main>
       </div>
     </div>

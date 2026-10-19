@@ -14,6 +14,7 @@ export function AuthLayout({ children, sessionError }: AuthLayoutProps) {
     <main className="auth-layout">
       <section className="auth-panel" aria-labelledby="auth-title">
         <div className="auth-content">
+          <div className="auth-brand" aria-label="Retain">retain<span>.</span></div>
           {sessionError && (
             <div className="form-message error-message" role="alert">
               <span>{sessionError}</span>

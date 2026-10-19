@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 from database import get_db
 from dependencies.auth import get_authenticated_user, get_current_user
 from models.user import User
-from schemas.auth import UserPublic
+from schemas.auth import AccessToken, UserPublic
 from schemas.users import PasswordChange, UserProfileUpdate
-from security import hash_password, verify_password
+from security import create_access_token, hash_password, verify_password
 
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -79,12 +79,12 @@ def update_my_profile(
     return user
 
 
-@router.post("/me/password", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/me/password", response_model=AccessToken)
 def change_my_password(
     payload: PasswordChange,
     user: Annotated[User, Depends(get_authenticated_user)],
     db: Annotated[Session, Depends(get_db)],
-) -> None:
+) -> AccessToken:
     if not verify_password(payload.current_password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -101,3 +101,6 @@ def change_my_password(
     user.token_version += 1
     db.add(user)
     db.commit()
+    return AccessToken(
+        access_token=create_access_token(user.id, user.token_version)
+    )

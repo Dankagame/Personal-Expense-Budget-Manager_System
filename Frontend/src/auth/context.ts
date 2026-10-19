@@ -29,6 +29,7 @@ export type AuthContextValue = {
   isAdmin: boolean
   sessionError: string | null
   signIn: (email: string, password: string) => Promise<void>
+  signInAdmin: (email: string, password: string) => Promise<void>
   signUp: (details: SignupDetails) => Promise<void>
   updateProfile: (details: ProfileDetails) => Promise<void>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>

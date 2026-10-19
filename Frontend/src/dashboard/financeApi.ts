@@ -10,8 +10,11 @@ import type {
 type ExpenseFilters = {
   search?: string
   categoryId?: number | null
+  paymentMethod?: string
   startDate?: string
   endDate?: string
+  sortBy?: 'expense_date' | 'amount'
+  sortOrder?: 'asc' | 'desc'
 }
 
 export function getOverview(accessToken: string, month: string) {
@@ -32,8 +35,11 @@ export function getExpenses(
   params.set('offset', String(filters.offset ?? 0))
   if (filters.search) params.set('search', filters.search)
   if (filters.categoryId) params.set('category_id', String(filters.categoryId))
+  if (filters.paymentMethod) params.set('payment_method', filters.paymentMethod)
   if (filters.startDate) params.set('start_date', filters.startDate)
   if (filters.endDate) params.set('end_date', filters.endDate)
+  if (filters.sortBy) params.set('sort_by', filters.sortBy)
+  if (filters.sortOrder) params.set('sort_order', filters.sortOrder)
   return apiFetch<Expense[]>(`/expenses?${params}`, { accessToken })
 }
 
@@ -52,6 +58,10 @@ export async function getAllExpenses(
     all.push(...page)
     if (page.length < limit) return all
   }
+}
+
+export function getExpenseById(accessToken: string, expenseId: number, signal?: AbortSignal) {
+  return apiFetch<Expense>(`/expenses/${expenseId}`, { accessToken, signal })
 }
 
 export function createExpense(accessToken: string, payload: ExpenseInput) {

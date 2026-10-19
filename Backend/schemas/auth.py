@@ -17,6 +17,14 @@ class UserPublic(BaseModel):
     email: EmailStr
     phone_number: str | None
     created_at: datetime
+    roles: list["RolePublic"] = Field(default_factory=list)
+
+
+class RolePublic(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
 
 
 class AccessToken(BaseModel):

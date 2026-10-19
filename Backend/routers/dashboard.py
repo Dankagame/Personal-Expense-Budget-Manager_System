@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -23,24 +23,31 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 def get_dashboard(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    month: Annotated[str | None, Query(pattern=r"^[1-9][0-9]{3}-(0[1-9]|1[0-2])$")] = None,
 ) -> DashboardSummary:
-    current_month = date.today().replace(day=1)
-    if current_month.month == 12:
-        next_month = date(current_month.year + 1, 1, 1)
+    selected_month = (
+        date(int(month[:4]), int(month[5:]), 1)
+        if month is not None
+        else date.today().replace(day=1)
+    )
+    if selected_month.year == 9999 and selected_month.month == 12:
+        raise HTTPException(status_code=422, detail="Month must be before 9999-12")
+    if selected_month.month == 12:
+        next_month = date(selected_month.year + 1, 1, 1)
     else:
-        next_month = date(current_month.year, current_month.month + 1, 1)
+        next_month = date(selected_month.year, selected_month.month + 1, 1)
 
     total_spending = db.scalar(
         select(func.coalesce(func.sum(Expense.amount), 0)).where(
             Expense.owner_id == user.id,
-            Expense.expense_date >= current_month,
+            Expense.expense_date >= selected_month,
             Expense.expense_date < next_month,
         )
     )
     budget = db.scalar(
         select(Budget).where(
             Budget.owner_id == user.id,
-            Budget.budget_month == current_month,
+            Budget.budget_month == selected_month,
         )
     )
     spent = Decimal(total_spending or 0)
@@ -50,7 +57,7 @@ def get_dashboard(
         .options(selectinload(Expense.category))
         .where(
             Expense.owner_id == user.id,
-            Expense.expense_date >= current_month,
+            Expense.expense_date >= selected_month,
             Expense.expense_date < next_month,
         )
         .order_by(Expense.amount.desc(), Expense.id.desc())
@@ -59,7 +66,11 @@ def get_dashboard(
     recent_expenses = db.scalars(
         select(Expense)
         .options(selectinload(Expense.category))
-        .where(Expense.owner_id == user.id)
+        .where(
+            Expense.owner_id == user.id,
+            Expense.expense_date >= selected_month,
+            Expense.expense_date < next_month,
+        )
         .order_by(Expense.expense_date.desc(), Expense.id.desc())
         .limit(5)
     ).all()
@@ -72,7 +83,7 @@ def get_dashboard(
         .join(Expense, Expense.category_id == Category.id)
         .where(
             Expense.owner_id == user.id,
-            Expense.expense_date >= current_month,
+            Expense.expense_date >= selected_month,
             Expense.expense_date < next_month,
         )
         .group_by(Category.id, Category.name)

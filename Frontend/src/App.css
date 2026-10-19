@@ -115,3 +115,26 @@
   place-items: center;
   color: #526257;
 }
+
+.access-page {
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  padding: 24px;
+  background: #f8f8fa;
+}
+
+.access-card {
+  width: min(100%, 440px);
+  padding: 32px;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  background: #fff;
+  color: #252525;
+}
+
+.access-card h1 { margin: 0 0 10px; font-size: 26px; }
+.access-card p { margin: 0; color: #66666c; }
+.access-actions { display: flex; gap: 18px; margin-top: 24px; align-items: center; }
+.access-actions a, .access-actions button { color: #4968d8; font: inherit; font-weight: 600; }
+.access-actions button { padding: 0; border: 0; background: transparent; cursor: pointer; }

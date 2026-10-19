@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [accessToken, retryKey])
 
   const authenticate = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string, requiredRole?: string) => {
       const form = new URLSearchParams({ username: email, password })
       const token = await apiFetch<{ access_token: string }>('/auth/login', {
         method: 'POST',
@@ -71,6 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profile = await apiFetch<AuthUser>('/users/me', {
         accessToken: token.access_token,
       })
+
+      if (requiredRole && !profile.roles.some((role) => role.name === requiredRole)) {
+        throw new Error('Administrator access is required.')
+      }
 
       window.sessionStorage.setItem(ACCESS_TOKEN_KEY, token.access_token)
       setAccessToken(token.access_token)
@@ -84,6 +88,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(
     async (email: string, password: string) => {
       await authenticate(email, password)
+    },
+    [authenticate],
+  )
+
+  const signInAdmin = useCallback(
+    async (email: string, password: string) => {
+      await authenticate(email, password, 'admin')
     },
     [authenticate],
   )
@@ -155,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: user?.roles.some((role) => role.name === 'admin') ?? false,
       sessionError,
       signIn,
+      signInAdmin,
       signUp,
       updateProfile,
       changePassword,
@@ -167,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       sessionError,
       signIn,
+      signInAdmin,
       signUp,
       updateProfile,
       changePassword,

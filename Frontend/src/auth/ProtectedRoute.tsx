@@ -11,7 +11,7 @@ export function ProtectedRoute({
   children,
   requiredRole,
 }: ProtectedRouteProps) {
-  const { user, isLoading, isAdmin } = useAuth()
+  const { user, isLoading, isAdmin, signOut } = useAuth()
 
   if (isLoading) {
     return <LoadingState label="Checking your session…" fullPage />
@@ -23,10 +23,16 @@ export function ProtectedRoute({
 
   if (requiredRole === 'admin' && !isAdmin) {
     return (
-      <section className="auth-card" role="alert">
-        <h1>Access denied</h1>
-        <p>This area is only available to administrators.</p>
-      </section>
+      <main className="access-page">
+        <section className="access-card" role="alert">
+          <h1>Administrator access required</h1>
+          <p>This account cannot open the admin dashboard.</p>
+          <div className="access-actions">
+            <a href="/">Go to your dashboard</a>
+            <button type="button" onClick={signOut}>Sign out</button>
+          </div>
+        </section>
+      </main>
     )
   }
 

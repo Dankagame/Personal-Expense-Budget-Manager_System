@@ -24,6 +24,19 @@
   width: min(100%, 512px);
 }
 
+.auth-brand {
+  margin-bottom: 30px;
+  color: #1e1e20;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -.05em;
+  text-align: center;
+}
+
+.auth-brand span {
+  color: #4968d8;
+}
+
 .auth-heading {
   margin-bottom: 30px;
   text-align: center;
