@@ -1,0 +1,117 @@
+#root {
+  min-height: 100vh;
+}
+
+.account-layout {
+  min-height: 100vh;
+  padding: 0 clamp(24px, 8vw, 120px);
+  background: #f8f7f2;
+}
+
+.account-header {
+  display: flex;
+  min-height: 88px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e8e5dc;
+  color: #244536;
+}
+
+.account-header .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 25px;
+  font-weight: 600;
+  letter-spacing: -0.8px;
+  text-decoration: none;
+}
+
+.account-header .brand-mark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 19px;
+}
+
+.secondary-button {
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1px solid #d7ddd6;
+  border-radius: 8px;
+  background: #fff;
+  color: #244536;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.secondary-button:hover {
+  background: #f2f5f1;
+}
+
+.welcome-card {
+  max-width: 760px;
+  margin: clamp(56px, 12vh, 120px) auto;
+  padding: clamp(28px, 6vw, 64px);
+  border: 1px solid #ebe8e0;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgb(35 48 40 / 6%);
+}
+
+.welcome-card h1 {
+  margin: 0;
+  color: #1e3028;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(38px, 5vw, 58px);
+  font-weight: 400;
+  letter-spacing: -2.2px;
+  line-height: 1.08;
+}
+
+.intro-copy {
+  max-width: 430px;
+  margin: 22px 0 0;
+  color: #686f68;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+.welcome-card strong {
+  color: #34443b;
+}
+
+.role-badge {
+  display: inline-block;
+  margin-top: 20px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #eaf1eb;
+  color: #315d43;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.account-note {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid #eeece6;
+  color: #777a73;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.status-message {
+  display: grid;
+  min-height: 100vh;
+  margin: 0;
+  place-items: center;
+  color: #526257;
+}
